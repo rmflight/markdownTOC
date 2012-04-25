@@ -12,6 +12,10 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
 	
 	# which ones are valid, and what is their length or level
 	headerLoc <- which(headerExp != -1)
+	if (length(headerLoc) == 0){
+		stop("No headers found. Please use 'atx' style headers!", call.=F)
+	}
+	
 	headerLev <- headerLev[headerLoc]
 	useLev <- headerLev <= maxLevel
 	headerLoc <- headerLoc[useLev]
@@ -19,6 +23,9 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
 	
 	tocLoc <- grep(tocString, mdText)
 	tocLoc <- tocLoc[(tocLoc %in% headerLoc)] # in case the string also appears in the main text
+	if (length(tocLoc) == 0){
+		stop("Table of Contents header string not found, exiting!", call.=F)
+	}
 	
 	# this assumes that any header lines above the TOC location are to be ignored as part of the TOC
 	lowerHead <- headerLoc > tocLoc
@@ -29,12 +36,12 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
 	headerAnch <- regexpr('<a', mdText)
 	headerAnch <- headerAnch[headerLoc]
 	nullAnch <- which(headerAnch == -1)
-	headerAnch[nullAnch] <- nchar(mdText[headerLoc[nullAnch]])
+	headerAnch[nullAnch] <- nchar(mdText[headerLoc[nullAnch]])+1 # need to add 1 for when there is no anchor present
 	
 	# loop through the header lines, getting all the data we need
 	tocText <- sapply(seq(1, length(headerLoc)), function(hI){
 		tmpTxt <- mdText[headerLoc[hI]]
-		headTxt <- substring(tmpTxt, 1, headerAnch[hI])
+		headTxt <- substring(tmpTxt, 1, headerAnch[hI]-1)
 		headName <- substring(headTxt, headerLev[hI]+2) # assumes there is one space between the # and the string
 		anchTxt <- tolower(headName)
 		
@@ -56,3 +63,6 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
 	
 }
 
+# mdFile <- "Programming-Resources.md"
+# maxLevel <- Inf
+# tocString <- "TOC"
