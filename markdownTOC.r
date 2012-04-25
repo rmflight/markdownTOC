@@ -29,12 +29,12 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
 	headerAnch <- regexpr('<a', mdText)
 	headerAnch <- headerAnch[headerLoc]
 	nullAnch <- which(headerAnch == -1)
-	headerAnch[nullAnch] <- nchar(mdText[nullAnch])
+	headerAnch[nullAnch] <- nchar(mdText[headerLoc[nullAnch]])
 	
 	# loop through the header lines, getting all the data we need
 	tocText <- sapply(seq(1, length(headerLoc)), function(hI){
 		tmpTxt <- mdText[headerLoc[hI]]
-		headTxt <- substring(tmpTxt, 1, headerAnch[hI] - 1)
+		headTxt <- substring(tmpTxt, 1, headerAnch[hI])
 		headName <- substring(headTxt, headerLev[hI]+2) # assumes there is one space between the # and the string
 		anchTxt <- tolower(headName)
 		
