@@ -1,17 +1,52 @@
+inBetweenCode <- function(codeLoc, headerLoc){
+	keepHead <- rep(TRUE, length(headerLoc))
+	
+	begCount <- 1
+	endCount <- 2
+	
+	while (endCount < max(codeLoc)){
+		greatCode <- headerLoc > codeLoc[begCount]
+		lessCode <- headerLoc < codeLoc[endCount]
+		keepHead[(greatCode & lessCode)] <- FALSE
+		
+		begCount <- begCount + 2
+		endCount <- begCount + 1
+	}
+	headerLoc <- headerLoc[keepHead]
+	return(headerLoc)
+}
+
 
 # takes a markdown file, and creates a TOC up to the level specified
 # because we are working with markdown, we can use the advantage that things live on separate lines for headings.
 # Right now we only support # style heading definition.
-mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
+mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC", newFile=F){
 	# read in the file
 	mdText <- scan(file=mdFile, what="character", sep="\n", blank.lines.skip=F)
+	
+	if (newFile){
+		dotLoc <- regexpr("\\.", mdFile)
+		if (dotLoc[1] != -1){
+			mdRoot <- substring(mdFile, 1, max(dotLoc)-1)
+			mdExt <- substring(mdFile, max(dotLoc)+1, nchar(mdFile))
+		} else {
+			mdRoot <- mdFile
+			mdExt <- "md"
+		}
+		mdFile <- paste(mdRoot, "_toc.", mdExt, sep="")
+	}
 	
 	# look for lines starting with "#" followed by anything else
 	headerExp <- regexpr('^[#]+', mdText)
 	headerLev <- attr(headerExp, "match.length")
 	
+	# also look for those lines with code block definitions
+	codeExp <- regexpr('^`{3}[[:alnum:]]*', mdText)
+	codeLoc <- which(codeExp != -1)
+	
 	# which ones are valid, and what is their length or level
 	headerLoc <- which(headerExp != -1)
+	headerLoc <- inBetweenCode(codeLoc, headerLoc)
 	if (length(headerLoc) == 0){
 		stop("No headers found. Please use 'atx' style headers!", call.=F)
 	}
@@ -46,9 +81,9 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
 		anchTxt <- tolower(headName)
 		
 		# remove any blanks
-		anchTxt <- gsub(" ", "", anchTxt)
+		anchTxt <- gsub('[[:punct:]]|[[:space:]]', "", anchTxt)
 		
-		mdText[headerLoc[hI]] <<- paste(headTxt, '<a id="', anchTxt, '"></a>', sep="")
+		mdText[headerLoc[hI]] <<- paste(headTxt, '<a name="', anchTxt, '"></a>', sep="")
 		nBlank <- paste(rep(" ", (headerLev[hI] - 1) * 4 ), collapse="")
 		headName <- paste(nBlank, "* [", headName, "](#", anchTxt, ")", sep="")
 		return(headName)
@@ -65,11 +100,11 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC"){
 
 # grabs the table of contents from a given file
 grabToc <- function(mdText, tocString="TOC"){
-	allHead <- regexpr("^[#]{1} ([[:alnum:]]| )", mdText)
+	allHead <- regexpr("^[#]{1} ([[:alnum:]]|[[:punct:]]|[[:space:]])", mdText)
 	mainHead <- (which(allHead != -1))[1]
 	fileHead <- substring(mdText[mainHead], 3)
 	tocHead <- regexpr(paste('^[#]+ ', tocString, sep=""), mdText)
-	tocLines <- regexpr("\\[([[:alnum:]]| )+\\]\\(#([[:alnum:]]| )+\\)", mdText) # looking for [textstring](#anchorstring)
+	tocLines <- regexpr("\\[([[:alnum:]]|[[:punct:]]|[[:space:]])+\\]\\(#([[:alnum:]])+\\)", mdText) # looking for [textstring](#anchorstring)
 	
 	tocLines <- which(tocLines != -1)
 	tocLines <- tocLines[tocLines > which(tocHead != -1)]
@@ -85,7 +120,7 @@ grabToc <- function(mdText, tocString="TOC"){
 # For example, for Github wiki pages, the relative path from "github.com" should be supplied, /user/project/wiki/
 
 # assumptions: The link text to use is the first header in each subFile, the TOC in each subFile is between '# tocString' and the next header, and all files are in the same directory.
-mdFullToc <- function(mainFile=NULL, subFiles, tocString="TOC", filePath=NULL){
+mdFullToc <- function(mainFile=NULL, subFiles, tocString="TOC", filePath=NULL, is.gitwiki=TRUE){
 	subSplit <- strsplit(subFiles, .Platform$file.sep)
 	subSplit <- sapply(subSplit, function(x){x[[length(x)]]})
 	
@@ -97,14 +132,24 @@ mdFullToc <- function(mainFile=NULL, subFiles, tocString="TOC", filePath=NULL){
 		
 		tocDat <- grabToc(mdText, tocString)
 		headTOC <- paste('* [', tocDat$fileHead, '](', wikiLink, ')', sep="")
-		subLinkLoc <- regexpr('\\(#', tocDat$tocTxt)
-		subLinkTxt <- sapply(seq(1,length(subLinkLoc)), function(x){
-			tmpTxt <- tocDat$tocTxt[x]
-			str1 <- substring(tmpTxt, 1, subLinkLoc[x])
-			str2 <- substring(tmpTxt, subLinkLoc[x]+1)
-			paste(paste(rep(" ", 4), sep="", collapse=""), str1, wikiLink, str2, sep="")
-		})
-		return(c(headTOC, subLinkTxt))
+		
+		if (length(tocDat$tocTxt) != 0){
+		
+			subLinkLoc <- regexpr('\\(#', tocDat$tocTxt)
+			subLinkTxt <- sapply(seq(1,length(subLinkLoc)), function(x){
+				tmpTxt <- tocDat$tocTxt[x]
+				str1 <- substring(tmpTxt, 1, subLinkLoc[x])
+				str2 <- substring(tmpTxt, subLinkLoc[x]+2)
+				
+				if (is.gitwiki){
+					paste(paste(rep(" ", 4), sep="", collapse=""), str1, wikiLink, '#wiki-', str2, sep="")
+				} else {
+					paste(paste(rep(" ", 4), sep="", collapse=""), str1, wikiLink, str2, sep="")
+				}
+			})
+			headTOC <- c(headTOC, subLinkTxt) # append everything together
+		} 
+		return(headTOC)
 	})
 	if (is.null(mainFile)){
 		return(unlist(mainToc, use.names=F))
@@ -122,6 +167,9 @@ mdFullToc <- function(mainFile=NULL, subFiles, tocString="TOC", filePath=NULL){
 		
 	}
 }
+
+
+
 
 # subFiles <- c("Programming-Resources.md", "Journals-I-follow.md")
 # tocString <- "TOC"
