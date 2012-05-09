@@ -171,9 +171,9 @@ mdFullToc <- function(mainFile=NULL, subFiles, tocString="TOC", filePath=NULL, i
 
 
 
-# subFiles <- c("Programming-Resources.md", "Journals-I-follow.md")
-# tocString <- "TOC"
-# filePath <- "rmflight/general/wiki"
-# mdFile <- "Programming-Resources.md"
-# maxLevel <- Inf
-# tocString <- "TOC"
+
+
+
+
+
+
