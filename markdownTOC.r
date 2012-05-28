@@ -1,3 +1,5 @@
+# this function grabs stuff that is in between code chunks, and removes any header lines (i.e. comments)
+# out of the original indices
 inBetweenCode <- function(codeLoc, headerLoc){
 	keepHead <- rep(TRUE, length(headerLoc))
 	
@@ -20,7 +22,7 @@ inBetweenCode <- function(codeLoc, headerLoc){
 # takes a markdown file, and creates a TOC up to the level specified
 # because we are working with markdown, we can use the advantage that things live on separate lines for headings.
 # Right now we only support # style heading definition.
-mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC", newFile=F){
+mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="%TOC%", newFile=F){
 	# read in the file
 	mdText <- scan(file=mdFile, what="character", sep="\n", blank.lines.skip=F)
 	
@@ -57,16 +59,12 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC", newFile=F){
 	headerLev <- headerLev[useLev]
 	
 	tocLoc <- grep(tocString, mdText)
-	tocLoc <- tocLoc[(tocLoc %in% headerLoc)] # in case the string also appears in the main text
+	
 	if (length(tocLoc) == 0){
 		stop("Table of Contents header string not found, exiting!", call.=F)
 	}
-	
-	# this assumes that any header lines above the TOC location are to be ignored as part of the TOC
-	lowerHead <- headerLoc > tocLoc
-	headerLoc <- headerLoc[lowerHead]
-	headerLev <- headerLev[lowerHead]
-	
+	else { tocLoc <- tocLoc[1] }
+  
 	# find anything that was already set
 	headerAnch <- regexpr('<a', mdText)
 	headerAnch <- headerAnch[headerLoc]
@@ -89,11 +87,10 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="TOC", newFile=F){
 		return(headName)
 		
 	})
-	
-	# and insert the TOC immediately after the tocLoc
-	topTxt <- mdText[1:tocLoc]
-	botTxt <- mdText[seq(headerLoc[1],length(mdText))] # this removes any current TOC in the document
-	mdText <- c(topTxt,"", tocText, "", botTxt)
+  	
+	# and replace the TOC string that was supplied previously
+	mdText <- c(mdText[1:tocLoc-1], tocText, mdText[tocLoc:length(mdText)])
+	# mdText <- c(topTxt,"", tocText, "", botTxt)
 	cat(mdText, file=mdFile, sep="\n")
 	
 }
