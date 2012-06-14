@@ -22,21 +22,10 @@ inBetweenCode <- function(codeLoc, headerLoc){
 # takes a markdown file, and creates a TOC up to the level specified
 # because we are working with markdown, we can use the advantage that things live on separate lines for headings.
 # Right now we only support # style heading definition.
-mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="%TOC%", newFile=F){
+mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="%TOC%", newFile=FALSE){
 	# read in the file
 	mdText <- scan(file=mdFile, what="character", sep="\n", blank.lines.skip=F)
 	
-	if (newFile){
-		dotLoc <- regexpr("\\.", mdFile)
-		if (dotLoc[1] != -1){
-			mdRoot <- substring(mdFile, 1, max(dotLoc)-1)
-			mdExt <- substring(mdFile, max(dotLoc)+1, nchar(mdFile))
-		} else {
-			mdRoot <- mdFile
-			mdExt <- "md"
-		}
-		mdFile <- paste(mdRoot, "_toc.", mdExt, sep="")
-	}
 	
 	# look for lines starting with "#" followed by anything else
 	headerExp <- regexpr('^[#]+', mdText)
@@ -89,10 +78,28 @@ mdInpageTOC <- function(mdFile, maxLevel=Inf, tocString="%TOC%", newFile=F){
 	})
   	
 	# and replace the TOC string that was supplied previously
-	mdText <- c(mdText[1:tocLoc-1], tocText, mdText[tocLoc:length(mdText)])
-	# mdText <- c(topTxt,"", tocText, "", botTxt)
-	cat(mdText, file=mdFile, sep="\n")
+  topIndx <- seq(1,tocLoc-1)
+  botIndx <- seq(tocLoc+1, length(mdText))
+	mdText <- c(mdText[topIndx], tocText, mdText[botIndx])
 	
+	if (is.null(newFile)){
+	  return(mdText)
+	}
+  else {
+    if (newFile){
+  	  dotLoc <- regexpr("\\.", mdFile)
+  	  if (dotLoc[1] != -1){
+  	    mdRoot <- substring(mdFile, 1, max(dotLoc)-1)
+  	    mdExt <- substring(mdFile, max(dotLoc)+1, nchar(mdFile))
+  	  } else {
+  	    mdRoot <- mdFile
+  	    mdExt <- "md"
+  	  }
+  	  mdFile <- paste(mdRoot, "_toc.", mdExt, sep="")
+  	  }
+    cat(mdText, file=mdFile, sep="\n")
+  }
+  
 }
 
 # grabs the table of contents from a given file
